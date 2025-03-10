@@ -7,7 +7,7 @@ const WINDOW_SIZE_IN_SECONDS = 60;  // 1 minute - window
 export const rateLimiter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         // Get API Key from the request header
-        const apiKey = req.header('api-key');
+        const apiKey = req.header('x-api-key');
         if (!apiKey) {
             res.status(401).json({ error: 'API Key is missing' });
             return;
