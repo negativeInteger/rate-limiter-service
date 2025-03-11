@@ -25,12 +25,15 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
     try {
         // Remove expired request timestamps(older than 60s)
         await redis.zRemRangeByScore(redisKey, 0, oneMinuteAgo);
-        // Get the current request count
-        const requestCount = await redis.zCard(redisKey);
+        // Count the number of requests in last 60s
+        const requestTimeStamps = await redis.zRangeByScore(redisKey, oneMinuteAgo, now);
+        const requestCount = requestTimeStamps.length;
+        // Check if request count exceeds the limit
         if(requestCount >= rateLimit) {
-            res.status(429).json({ error: 'Rate limit exceeded. Try again later' })
+            res.status(429).json({ error: 'Rate limit exceeded. Try again later' });
+            return;
         }
-        // Add current request timestamp
+        // Add the current request timestamp
         await redis.zAdd(redisKey, [{ score: now, value: now.toString() }]);
         // Reset expiry time
         await redis.expire(redisKey, 60);

@@ -7,4 +7,4 @@ router.post('/create', apiKeyController.create);
 router.get('/', apiKeyController.list);
 router.delete('/:id', apiKeyController.delete);
 
-export { router as apiKeyRouter };
+export default router ;

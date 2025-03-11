@@ -10,7 +10,7 @@ export enum PlanType {
 export const apiKeyService = {
     async createApiKey(owner: string, plan: PlanType) {
         const key = randomBytes(32).toString('hex'); // Secure 64-char API Ke
-        const rateLimit = plan === PlanType.PREMIUM ? 1000: 100;
+        const rateLimit = plan === PlanType.PREMIUM ? 10: 5;
         return await prisma.apiKey.create({
             data: { key, owner, plan, rateLimit }
         });
