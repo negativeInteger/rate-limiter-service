@@ -16,6 +16,13 @@ datasource db {
 model ApiKey {
   id            String     @id @default(uuid())
   key           String     @unique
-  limit         Int        // Max requests per minute
+  owner         String
+  plan          PlanType   @default(FREE)
+  rateLimit     Int
   createdAt     DateTime   @default(now())
+}
+
+enum PlanType {
+  FREE
+  PREMIUM
 }

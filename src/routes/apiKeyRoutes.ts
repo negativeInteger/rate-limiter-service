@@ -1,11 +1,10 @@
 import { Router } from "express";
-import { createApiKey, getAllApiKeys, updateApiKey, deleteApiKey } from '../controllers/apiKeyController';
+import { apiKeyController } from "../controllers/apiKeyController";
 
 const router = Router();
 
-router.post('/create', createApiKey);
-router.get('/', getAllApiKeys);
-router.put('/:id', updateApiKey);
-router.delete('/:id', deleteApiKey);
+router.post('/create', apiKeyController.create);
+router.get('/', apiKeyController.list);
+router.delete('/:id', apiKeyController.delete);
 
-export default router;
+export { router as apiKeyRouter };

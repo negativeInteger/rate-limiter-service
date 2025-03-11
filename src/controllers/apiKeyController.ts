@@ -1,68 +1,31 @@
 import { Request, Response } from "express";
-import { prisma } from '../config/prisma';
-import { randomBytes } from "crypto";
+import { apiKeyService, PlanType } from "../services/apiKeyService";
 
-// Create a new API Key
-export async function createApiKey(req: Request, res: Response) {
-    try {
-        const { limit } = req.body;
-        if (!limit || typeof limit !== 'number') {
-            return res.status(400).json('Invalid rate limit');
+export const apiKeyController = {
+    async create(req: Request, res: Response) {
+        const { owner, plan } = req.body;
+        if (!owner || !plan) {
+            res.status(400).json({ message: "Owner and plan required" });
+            return;
         }
-        // Generate a random API Key (32 characters)
-        const apiKey = randomBytes(16).toString("hex");
-        // Store key in database
-        const newKey = await prisma.apiKey.create({
-            data: { key: apiKey, limit }
-        })
-        return res.status(201).json({ message: 'API Key generated', apiKey: newKey })
-    } catch (err) {
-        console.error('Error creating API Key', err);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-}
-
-// Get All API keys
-export async function getAllApiKeys(req: Request, res: Response) {
-    try {
-        const apiKeys = await prisma.apiKey.findMany();
+        if (!Object.values(PlanType).includes(plan)) {
+            res.status(400).json({ message: "Invalid plan type" });
+            return;
+        }
+        const apiKey = await apiKeyService.createApiKey(owner, plan as PlanType);
+        res.json({ message: "API Key Created", apiKey });
+    },
+    async list(req: Request, res: Response) {
+        const apiKeys = await apiKeyService.getApiKeys();
         res.json(apiKeys);
-    } catch (err) {
-        console.error('Error fetching API Keys', err);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-};
-
-// Update API Key rate limit
-export async function updateApiKey(req: Request, res: Response) {
-    try {
+    },
+    async delete(req: Request, res: Response) {
         const { id } = req.params;
-        const { limit } = req.body;
-        if (!limit || typeof limit !== 'number') {
-            return res.status(400).json('Invalid rate limit');
+        try{
+            await apiKeyService.deleteApiKey(id);
+            res.json({ message: 'API Key deleted' })
+        } catch (err) {
+            res.status(404).json({ message: 'API Key not found' })
         }
-        const updatedApiKey = await prisma.apiKey.update({
-            where: { id },
-            data: { limit }
-        })
-        res.status(200).json({ message: 'API Key updated', updatedApiKey });
-    } catch (err) {
-        console.error('Error updating API Key', err);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-    
-};
-
-// Delete an API Key
-export async function deleteApiKey(req: Request, res: Response) {
-    try {
-        const { id }  = req.params;
-        await prisma.apiKey.delete({
-            where: { id }
-        });
-        res.status(200).json({ message: 'API Key deleted' })
-    } catch (err) {
-        console.error('Error deleting API Key', err);
-        res.status(500).json({ error: 'Internal Server Error' });
     }
 };

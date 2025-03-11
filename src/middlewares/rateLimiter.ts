@@ -2,17 +2,14 @@ import { Request, Response, NextFunction } from "express";
 import { redis } from "../config/redis";
 import { prisma } from "../config/prisma";
 
-const WINDOW_SIZE_IN_SECONDS = 60;  // 1 minute - window
-
 export const rateLimiter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
         // Get API Key from the request header
-        const apiKey = req.header('x-api-key');
+        const apiKey = req.header('x-api-key') as string;
         if (!apiKey) {
             res.status(401).json({ error: 'API Key is missing' });
             return;
         }
-        // Fetch the rate limit for this API key from PostgreSQL
+        // Validate API in PostgreSQL
         const apiKeyData = await prisma.apiKey.findUnique({
             where: { key: apiKey }
         });
@@ -20,26 +17,23 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
             res.status(403).json({ error: 'Invalid API' });
             return;
         }
-        const { limit } = apiKeyData; // Max requests per minute
-        // Generate a Redis Key for tracking requests
-        const redisKey = `rate-limit:${apiKey}`;
-        // Check Redis for existing request count
-        const currentCount = await redis.get(redisKey);
-        const requestCount = currentCount ? parseInt(currentCount) : 0;
 
-        if (requestCount >= limit) {
-            res.status(429).json({ error: 'Too many requests. Please try again later.' })
-            return;
+        const { rateLimit } = apiKeyData; 
+        const redisKey = `ratelimit:${apiKey}`;
+        const now = Date.now();
+        const oneMinuteAgo = now - 60 * 1000; // now - 6000ms(60s)
+    try {
+        // Remove expired request timestamps(older than 60s)
+        await redis.zRemRangeByScore(redisKey, 0, oneMinuteAgo);
+        // Get the current request count
+        const requestCount = await redis.zCard(redisKey);
+        if(requestCount >= rateLimit) {
+            res.status(429).json({ error: 'Rate limit exceeded. Try again later' })
         }
-
-        // Increment request count in Redis
-        if (requestCount ===  0){
-            // First request in the window - set expiry
-            await redis.set(redisKey, '1', { EX: WINDOW_SIZE_IN_SECONDS });
-        } else {
-            await redis.incr(redisKey);
-        }
-        
+        // Add current request timestamp
+        await redis.zAdd(redisKey, [{ score: now, value: now.toString() }]);
+        // Reset expiry time
+        await redis.expire(redisKey, 60);
         next(); // Allow request to proceed
     } catch (err) {
         console.error('Rate Limiter Error', err);
