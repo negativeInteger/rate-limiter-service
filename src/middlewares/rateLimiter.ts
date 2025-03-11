@@ -28,8 +28,13 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
         // Count the number of requests in last 60s
         const requestTimeStamps = await redis.zRangeByScore(redisKey, oneMinuteAgo, now);
         const requestCount = requestTimeStamps.length;
-        // Check if request count exceeds the limit
-        if(requestCount >= rateLimit) {
+        // Estimate the sliding count (apply weighted decay)
+        const oldestTimeStamp = Number(requestTimeStamps[0]) || oneMinuteAgo;
+        const timeSinceOldest = now - oldestTimeStamp;
+        const decayFactor = (60 * 1000 - timeSinceOldest) / (60 * 1000);
+        const estimatedCount = requestCount * decayFactor;
+        // Check if rate limit is exceeded
+        if(estimatedCount >= rateLimit) {
             res.status(429).json({ error: 'Rate limit exceeded. Try again later' });
             return;
         }
